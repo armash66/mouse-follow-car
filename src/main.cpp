@@ -20,6 +20,11 @@ int main(int argc, char* argv[])
         SDL_RENDERER_ACCELERATED
     );
 
+    SDL_Surface* surface = SDL_CreateRGBSurface(0, 40, 20, 32, 0, 0, 0, 0);
+    SDL_FillRect(surface, NULL, SDL_MapRGB(surface->format, 255, 255, 255));
+    SDL_Texture* carTexture = SDL_CreateTextureFromSurface(renderer, surface);
+    SDL_FreeSurface(surface);
+
     bool running = true;
     SDL_Event event;
 
@@ -101,18 +106,20 @@ int main(int argc, char* argv[])
         SDL_SetRenderDrawColor(renderer, 20, 20, 20, 255);
         SDL_RenderClear(renderer);
 
-        SDL_Rect square;
-        square.w = size;
-        square.h = size;
-        square.x = static_cast<int>(posX - size / 2);
-        square.y = static_cast<int>(posY - size / 2);
+        SDL_Rect dstRect;
+        dstRect.w = 40;
+        dstRect.h = 20;
+        dstRect.x = static_cast<int>(posX - dstRect.w / 2);
+        dstRect.y = static_cast<int>(posY - dstRect.h / 2);
 
-        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-        SDL_RenderFillRect(renderer, &square);
+        double angleDegrees = angle * 180.0 / M_PI;
+
+        SDL_RenderCopyEx(renderer, carTexture, NULL, &dstRect, angleDegrees, NULL, SDL_FLIP_NONE);
 
         SDL_RenderPresent(renderer);
     }
-
+    
+    SDL_DestroyTexture(carTexture);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     SDL_Quit();
