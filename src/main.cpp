@@ -40,9 +40,8 @@ int main(int argc, char* argv[])
 
     // Physics tuning
     float accelerationStrength = 0.08f;
-    float maxSpeed = 3.5f;
-    float friction = 0.96f;
-    float lateralDamping = 0.99f; // extreme drift
+    float maxSpeed = 2.2f;
+    float friction = 0.985f;
 
     float angle = 0.0f;
 
@@ -97,7 +96,11 @@ int main(int argc, char* argv[])
         // ---- UPDATE ANGLE ----
         if (std::abs(velX) > 0.01f || std::abs(velY) > 0.01f)
         {
-            angle = std::atan2(velY, velX);
+            float targetAngle = std::atan2(velY, velX);
+
+            // Smooth rotation
+            float rotationSpeed = 0.15f;
+            angle += (targetAngle - angle) * rotationSpeed;
         }
 
         // ---- DRIFT CALCULATION ----
@@ -109,8 +112,10 @@ int main(int argc, char* argv[])
         float lateralX = velX - forwardX * forwardSpeed;
         float lateralY = velY - forwardY * forwardSpeed;
 
-        lateralX *= lateralDamping;
-        lateralY *= lateralDamping;
+        float grip = 0.02f;  // small grip = big drift
+
+        velX = forwardX * forwardSpeed + lateralX * (1.0f - grip);
+        velY = forwardY * forwardSpeed + lateralY * (1.0f - grip);
 
         velX = forwardX * forwardSpeed + lateralX;
         velY = forwardY * forwardSpeed + lateralY;
