@@ -30,9 +30,11 @@ int main(int argc, char* argv[])
     float velX = 0.0f;
     float velY = 0.0f;
 
-    float accelerationStrength = 0.05f;
-    float maxSpeed = 2.0f;
-    float friction = 0.95f;
+    float accelerationStrength = 0.08f;
+    float maxSpeed = 3.0f;
+    float friction = 0.94f;
+
+    float angle = 0.0f;
 
     int size = 20;      // Square size
     float movespeed = 0.07f; // How fast it follows mouse (0 to 1)
@@ -61,8 +63,16 @@ int main(int argc, char* argv[])
             dirY /= length;
 
             // Apply acceleration
-            velX += dirX * accelerationStrength;
-            velY += dirY * accelerationStrength;
+            float distanceFactor = length / 300.0f;
+
+            // Clamp it
+            if (distanceFactor > 1.5f)
+                distanceFactor = 1.5f;
+
+            float chaseForce = accelerationStrength * distanceFactor;
+
+            velX += dirX * chaseForce;
+            velY += dirY * chaseForce;
         }
 
         // Apply friction
@@ -71,6 +81,11 @@ int main(int argc, char* argv[])
 
         // Limit max speed
         float speed = std::sqrt(velX * velX + velY * velY);
+
+        if (std::abs(velX) > 0.01f || std::abs(velY) > 0.01f)
+        {
+            angle = std::atan2(velY, velX);
+        }
 
         if (speed > maxSpeed)
         {
