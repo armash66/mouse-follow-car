@@ -30,6 +30,10 @@ int main(int argc, char* argv[])
     float velX = 0.0f;
     float velY = 0.0f;
 
+    float accelerationStrength = 0.05f;
+    float maxSpeed = 2.0f;
+    float friction = 0.95f;
+
     int size = 20;      // Square size
     float movespeed = 0.07f; // How fast it follows mouse (0 to 1)
 
@@ -56,21 +60,27 @@ int main(int argc, char* argv[])
             dirX /= length;
             dirY /= length;
 
-            float speed = 2.0f;
-
-            velX = dirX * movespeed;
-            velY = dirY * movespeed;
+            // Apply acceleration
+            velX += dirX * accelerationStrength;
+            velY += dirY * accelerationStrength;
         }
-        else
+
+        // Apply friction
+        velX *= friction;
+        velY *= friction;
+
+        // Limit max speed
+        float speed = std::sqrt(velX * velX + velY * velY);
+
+        if (speed > maxSpeed)
         {
-            velX = 0.0f;
-            velY = 0.0f;
+            velX = (velX / speed) * maxSpeed;
+            velY = (velY / speed) * maxSpeed;
         }
 
-        // Update position using velocity
+        // Update position
         posX += velX;
         posY += velY;
-
 
         // ---- Render ----
         SDL_SetRenderDrawColor(renderer, 20, 20, 20, 255);
