@@ -1,12 +1,13 @@
 #include <SDL2/SDL.h>
 #include <cmath>
+#include <vector>
 
 int main(int argc, char* argv[])
 {
     SDL_Init(SDL_INIT_VIDEO);
 
     SDL_Window* window = SDL_CreateWindow(
-        "Mouse Follower",
+        "Mouse Drift Chase",
         SDL_WINDOWPOS_CENTERED,
         SDL_WINDOWPOS_CENTERED,
         800,
@@ -20,6 +21,7 @@ int main(int argc, char* argv[])
         SDL_RENDERER_ACCELERATED
     );
 
+    // Create simple car texture
     SDL_Surface* surface = SDL_CreateRGBSurface(0, 40, 20, 32, 0, 0, 0, 0);
     SDL_FillRect(surface, NULL, SDL_MapRGB(surface->format, 255, 255, 255));
     SDL_Texture* carTexture = SDL_CreateTextureFromSurface(renderer, surface);
@@ -28,35 +30,38 @@ int main(int argc, char* argv[])
     bool running = true;
     SDL_Event event;
 
-    // Shape position (center of screen initially)
+    // Position
     float posX = 400.0f;
     float posY = 300.0f;
 
+    // Velocity
     float velX = 0.0f;
     float velY = 0.0f;
 
+    // Physics tuning
     float accelerationStrength = 0.08f;
-    float maxSpeed = 3.0f;
-    float friction = 0.94f;
+    float maxSpeed = 3.5f;
+    float friction = 0.96f;
+    float lateralDamping = 0.99f; // extreme drift
 
     float angle = 0.0f;
 
-    int size = 20;      // Square size
-    float movespeed = 0.07f; // How fast it follows mouse (0 to 1)
+    std::vector<SDL_Point> tireMarks;
 
     while (running)
     {
-        // ---- Handle Events ----
+        // ---- EVENTS ----
         while (SDL_PollEvent(&event))
         {
             if (event.type == SDL_QUIT)
                 running = false;
         }
 
-        // ---- Get Mouse Position ----
+        // ---- INPUT ----
         int mouseX, mouseY;
         SDL_GetMouseState(&mouseX, &mouseY);
 
+        // ---- ACCELERATION ----
         float dirX = mouseX - posX;
         float dirY = mouseY - posY;
 
@@ -67,10 +72,7 @@ int main(int argc, char* argv[])
             dirX /= length;
             dirY /= length;
 
-            // Apply acceleration
             float distanceFactor = length / 300.0f;
-
-            // Clamp it
             if (distanceFactor > 1.5f)
                 distanceFactor = 1.5f;
 
@@ -80,45 +82,71 @@ int main(int argc, char* argv[])
             velY += dirY * chaseForce;
         }
 
-        // Apply friction
+        // ---- FRICTION ----
         velX *= friction;
         velY *= friction;
 
-        // Calculate forward vector from angle
-        float forwardX = std::cos(angle);
-        float forwardY = std::sin(angle);
-
-        // Project velocity onto forward direction
-        float forwardSpeed = velX * forwardX + velY * forwardY;
-
-        // Rebuild velocity using mostly forward component
-        float driftFactor = 0.08f;  // lower = more drift
-
-        velX = forwardX * forwardSpeed + (velX - forwardX * forwardSpeed) * driftFactor;
-        velY = forwardY * forwardSpeed + (velY - forwardY * forwardSpeed) * driftFactor;
-
-        // Limit max speed
+        // ---- LIMIT SPEED ----
         float speed = std::sqrt(velX * velX + velY * velY);
-
-        if (std::abs(velX) > 0.01f || std::abs(velY) > 0.01f)
-        {
-            angle = std::atan2(velY, velX);
-        }
-
         if (speed > maxSpeed)
         {
             velX = (velX / speed) * maxSpeed;
             velY = (velY / speed) * maxSpeed;
         }
 
-        // Update position
+        // ---- UPDATE ANGLE ----
+        if (std::abs(velX) > 0.01f || std::abs(velY) > 0.01f)
+        {
+            angle = std::atan2(velY, velX);
+        }
+
+        // ---- DRIFT CALCULATION ----
+        float forwardX = std::cos(angle);
+        float forwardY = std::sin(angle);
+
+        float forwardSpeed = velX * forwardX + velY * forwardY;
+
+        float lateralX = velX - forwardX * forwardSpeed;
+        float lateralY = velY - forwardY * forwardSpeed;
+
+        lateralX *= lateralDamping;
+        lateralY *= lateralDamping;
+
+        velX = forwardX * forwardSpeed + lateralX;
+        velY = forwardY * forwardSpeed + lateralY;
+
+        // ---- TIRE MARKS ----
+        float lateralMagnitude = std::sqrt(lateralX * lateralX + lateralY * lateralY);
+
+        if (lateralMagnitude > 0.6f)
+        {
+            tireMarks.push_back({ static_cast<int>(posX), static_cast<int>(posY) });
+
+            if (tireMarks.size() > 800)
+                tireMarks.erase(tireMarks.begin());
+        }
+
+        // ---- UPDATE POSITION ----
         posX += velX;
         posY += velY;
 
-        // ---- Render ----
+        // ---- RENDER ----
         SDL_SetRenderDrawColor(renderer, 20, 20, 20, 255);
         SDL_RenderClear(renderer);
 
+        // Draw tire trails (continuous lines)
+        SDL_SetRenderDrawColor(renderer, 40, 40, 40, 255);
+
+        for (size_t i = 1; i < tireMarks.size(); ++i)
+        {
+            SDL_RenderDrawLine(renderer,
+                tireMarks[i - 1].x,
+                tireMarks[i - 1].y,
+                tireMarks[i].x,
+                tireMarks[i].y);
+        }
+
+        // Draw rotated car
         SDL_Rect dstRect;
         dstRect.w = 40;
         dstRect.h = 20;
