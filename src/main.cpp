@@ -48,6 +48,9 @@ int main(int argc, char* argv[])
 
     float angle = 0.0f;
 
+    float driftTimer = 0.0f;
+    const float DRIFT_INTERVAL = 0.02f; // seconds between skid marks
+
     std::vector<TirePair> tireMarks;
 
     Uint64 lastCounter = SDL_GetPerformanceCounter();
@@ -151,31 +154,45 @@ int main(int argc, char* argv[])
 
         // ---- TIRE MARKS ----
         float lateralMagnitude =
-            std::sqrt(lateralX * lateralX + lateralY * lateralY);
+        std::sqrt(lateralX * lateralX + lateralY * lateralY);
 
-        if (lateralMagnitude > 120.0f)
+        // Drift detection threshold
+        bool isDrifting = lateralMagnitude > 150.0f;
+
+        if (isDrifting)
         {
-            float rearOffset = -22.0f;
-            float tireSpread = 14.0f;
+            driftTimer += deltaTime;
 
-            float rearX = posX + std::cos(angle) * rearOffset;
-            float rearY = posY + std::sin(angle) * rearOffset;
+            if (driftTimer >= DRIFT_INTERVAL)
+            {
+                driftTimer = 0.0f;
 
-            float perpX = -std::sin(angle);
-            float perpY =  std::cos(angle);
+                float rearOffset = -22.0f;
+                float tireSpread = 14.0f;
 
-            TirePair pair;
+                float rearX = posX + std::cos(angle) * rearOffset;
+                float rearY = posY + std::sin(angle) * rearOffset;
 
-            pair.left.x  = (int)(rearX + perpX * tireSpread);
-            pair.left.y  = (int)(rearY + perpY * tireSpread);
+                float perpX = -std::sin(angle);
+                float perpY =  std::cos(angle);
 
-            pair.right.x = (int)(rearX - perpX * tireSpread);
-            pair.right.y = (int)(rearY - perpY * tireSpread);
+                TirePair pair;
 
-            tireMarks.push_back(pair);
+                pair.left.x  = (int)(rearX + perpX * tireSpread);
+                pair.left.y  = (int)(rearY + perpY * tireSpread);
 
-            if (tireMarks.size() > 1200)
-                tireMarks.erase(tireMarks.begin());
+                pair.right.x = (int)(rearX - perpX * tireSpread);
+                pair.right.y = (int)(rearY - perpY * tireSpread);
+
+                tireMarks.push_back(pair);
+
+                if (tireMarks.size() > 1500)
+                    tireMarks.erase(tireMarks.begin());
+            }
+        }
+        else
+        {
+            driftTimer = 0.0f;
         }
 
         // ---- UPDATE POSITION ----
@@ -186,10 +203,11 @@ int main(int argc, char* argv[])
         SDL_SetRenderDrawColor(renderer, 20, 20, 20, 255);
         SDL_RenderClear(renderer);
 
-        SDL_SetRenderDrawColor(renderer, 35, 35, 35, 255);
+        SDL_SetRenderDrawColor(renderer, 15, 15, 15, 255);
 
         for (size_t i = 1; i < tireMarks.size(); ++i)
         {
+            // Left tire (thicker)
             SDL_RenderDrawLine(renderer,
                 tireMarks[i - 1].left.x,
                 tireMarks[i - 1].left.y,
@@ -197,9 +215,22 @@ int main(int argc, char* argv[])
                 tireMarks[i].left.y);
 
             SDL_RenderDrawLine(renderer,
+                tireMarks[i - 1].left.x + 1,
+                tireMarks[i - 1].left.y,
+                tireMarks[i].left.x + 1,
+                tireMarks[i].left.y);
+
+            // Right tire (thicker)
+            SDL_RenderDrawLine(renderer,
                 tireMarks[i - 1].right.x,
                 tireMarks[i - 1].right.y,
                 tireMarks[i].right.x,
+                tireMarks[i].right.y);
+
+            SDL_RenderDrawLine(renderer,
+                tireMarks[i - 1].right.x + 1,
+                tireMarks[i - 1].right.y,
+                tireMarks[i].right.x + 1,
                 tireMarks[i].right.y);
         }
 
