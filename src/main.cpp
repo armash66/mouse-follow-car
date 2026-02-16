@@ -84,6 +84,19 @@ int main(int argc, char* argv[])
         velX *= friction;
         velY *= friction;
 
+        // Calculate forward vector from angle
+        float forwardX = std::cos(angle);
+        float forwardY = std::sin(angle);
+
+        // Project velocity onto forward direction
+        float forwardSpeed = velX * forwardX + velY * forwardY;
+
+        // Rebuild velocity using mostly forward component
+        float driftFactor = 0.08f;  // lower = more drift
+
+        velX = forwardX * forwardSpeed + (velX - forwardX * forwardSpeed) * driftFactor;
+        velY = forwardY * forwardSpeed + (velY - forwardY * forwardSpeed) * driftFactor;
+
         // Limit max speed
         float speed = std::sqrt(velX * velX + velY * velY);
 
@@ -118,7 +131,7 @@ int main(int argc, char* argv[])
 
         SDL_RenderPresent(renderer);
     }
-    
+
     SDL_DestroyTexture(carTexture);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
