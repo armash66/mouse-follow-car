@@ -44,8 +44,24 @@ int main(int argc, char* argv[])
         SDL_GetMouseState(&mouseX, &mouseY);
 
         // ---- Move Toward Mouse (Linear Interpolation) ----
-        posX += (mouseX - posX) * speed;
-        posY += (mouseY - posY) * speed;
+        float dirX = mouseX - posX;
+        float dirY = mouseY - posY;
+
+        // Calculate distance
+        float length = std::sqrt(dirX * dirX + dirY * dirY);
+
+        if (length > 1.0f) // Prevent jitter when very close
+        {
+            // Normalize direction
+            dirX /= length;
+            dirY /= length;
+
+            float moveSpeed = 2.0f;
+
+            posX += dirX * moveSpeed;
+            posY += dirY * moveSpeed;
+        }
+
 
         // ---- Render ----
         SDL_SetRenderDrawColor(renderer, 20, 20, 20, 255);
