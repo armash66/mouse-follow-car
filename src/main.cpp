@@ -1,4 +1,5 @@
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_image.h>
 #include <cmath>
 #include <vector>
 
@@ -9,10 +10,24 @@ struct TirePair {
 
 int main(int argc, char* argv[])
 {
-    SDL_Init(SDL_INIT_VIDEO);
+    // ---- INIT SDL ----
+    if (SDL_Init(SDL_INIT_VIDEO) < 0)
+    {
+        printf("SDL Init failed: %s\n", SDL_GetError());
+        return 1;
+    }
+
+    if (!(IMG_Init(IMG_INIT_PNG) & IMG_INIT_PNG))
+    {
+        printf("SDL_image PNG init failed: %s\n", IMG_GetError());
+        return 1;
+    }
+
+    // Disable texture filtering (pixel-perfect scaling)
+    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
 
     SDL_Window* window = SDL_CreateWindow(
-        "Steering Drift System",
+        "Batmobile Drift System",
         SDL_WINDOWPOS_CENTERED,
         SDL_WINDOWPOS_CENTERED,
         800,
@@ -26,11 +41,15 @@ int main(int argc, char* argv[])
         SDL_RENDERER_ACCELERATED
     );
 
-    SDL_Surface* surface = SDL_CreateRGBSurface(0, 50, 25, 32, 0, 0, 0, 0);
-    SDL_FillRect(surface, NULL, SDL_MapRGB(surface->format, 255, 255, 255));
-    SDL_Texture* carTexture = SDL_CreateTextureFromSurface(renderer, surface);
-    SDL_FreeSurface(surface);
+    // ---- LOAD IMAGE ----
+    SDL_Texture* carTexture = IMG_LoadTexture(renderer, "../assets/batmobile.png");
+    if (!carTexture)
+    {
+        printf("Failed to load batmobile.png: %s\n", IMG_GetError());
+        return 1;
+    }
 
+    // ---- PHYSICS VARIABLES ----
     bool running = true;
     SDL_Event event;
 
@@ -49,7 +68,7 @@ int main(int argc, char* argv[])
     float angle = 0.0f;
 
     float driftTimer = 0.0f;
-    const float DRIFT_INTERVAL = 0.02f; // seconds between skid marks
+    const float DRIFT_INTERVAL = 0.02f;
 
     std::vector<TirePair> tireMarks;
 
@@ -84,7 +103,6 @@ int main(int argc, char* argv[])
             dirX /= distance;
             dirY /= distance;
 
-            // ---- STEERING ----
             float targetAngle = std::atan2(dirY, dirX);
             float diff = targetAngle - angle;
 
@@ -96,14 +114,11 @@ int main(int argc, char* argv[])
             float forwardX = std::cos(angle);
             float forwardY = std::sin(angle);
 
-            // ---- DISTANCE THROTTLE ----
             float throttleZone = 250.0f;
             float throttle = distance / throttleZone;
-
             if (throttle > 1.0f) throttle = 1.0f;
             if (throttle < 0.0f) throttle = 0.0f;
 
-            // ---- ALIGNMENT THROTTLE ----
             float alignment = std::cos(diff);
             if (alignment < 0.0f)
                 alignment = 0.0f;
@@ -113,7 +128,6 @@ int main(int argc, char* argv[])
             velX += forwardX * ACCELERATION * finalThrottle * deltaTime;
             velY += forwardY * ACCELERATION * finalThrottle * deltaTime;
 
-            // ---- PROGRESSIVE BRAKE ----
             if (distance < 120.0f)
             {
                 float brakeZone = 120.0f;
@@ -154,9 +168,8 @@ int main(int argc, char* argv[])
 
         // ---- TIRE MARKS ----
         float lateralMagnitude =
-        std::sqrt(lateralX * lateralX + lateralY * lateralY);
+            std::sqrt(lateralX * lateralX + lateralY * lateralY);
 
-        // Drift detection threshold
         bool isDrifting = lateralMagnitude > 150.0f;
 
         if (isDrifting)
@@ -207,7 +220,6 @@ int main(int argc, char* argv[])
 
         for (size_t i = 1; i < tireMarks.size(); ++i)
         {
-            // Left tire (thicker)
             SDL_RenderDrawLine(renderer,
                 tireMarks[i - 1].left.x,
                 tireMarks[i - 1].left.y,
@@ -215,32 +227,20 @@ int main(int argc, char* argv[])
                 tireMarks[i].left.y);
 
             SDL_RenderDrawLine(renderer,
-                tireMarks[i - 1].left.x + 1,
-                tireMarks[i - 1].left.y,
-                tireMarks[i].left.x + 1,
-                tireMarks[i].left.y);
-
-            // Right tire (thicker)
-            SDL_RenderDrawLine(renderer,
                 tireMarks[i - 1].right.x,
                 tireMarks[i - 1].right.y,
                 tireMarks[i].right.x,
                 tireMarks[i].right.y);
-
-            SDL_RenderDrawLine(renderer,
-                tireMarks[i - 1].right.x + 1,
-                tireMarks[i - 1].right.y,
-                tireMarks[i].right.x + 1,
-                tireMarks[i].right.y);
         }
 
+        // ---- FORCE RENDER SIZE 28x14 ----
         SDL_Rect dstRect;
-        dstRect.w = 50;
-        dstRect.h = 25;
-        dstRect.x = (int)(posX - 25);
-        dstRect.y = (int)(posY - 12);
+        dstRect.w = 112;
+        dstRect.h = 56;
+        dstRect.x = (int)(posX - 56);
+        dstRect.y = (int)(posY - 28);
 
-        double angleDegrees = angle * 180.0 / M_PI;
+        double angleDegrees = angle * 180.0 / M_PI - 90.0;
 
         SDL_RenderCopyEx(renderer,
             carTexture,
@@ -258,6 +258,7 @@ int main(int argc, char* argv[])
     SDL_DestroyTexture(carTexture);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
+    IMG_Quit();
     SDL_Quit();
 
     return 0;
