@@ -27,8 +27,11 @@ int main(int argc, char* argv[])
     float posX = 400.0f;
     float posY = 300.0f;
 
+    float velX = 0.0f;
+    float velY = 0.0f;
+
     int size = 20;      // Square size
-    float speed = 0.05f; // How fast it follows mouse (0 to 1)
+    float movespeed = 0.07f; // How fast it follows mouse (0 to 1)
 
     while (running)
     {
@@ -43,24 +46,30 @@ int main(int argc, char* argv[])
         int mouseX, mouseY;
         SDL_GetMouseState(&mouseX, &mouseY);
 
-        // ---- Move Toward Mouse (Linear Interpolation) ----
         float dirX = mouseX - posX;
         float dirY = mouseY - posY;
 
-        // Calculate distance
         float length = std::sqrt(dirX * dirX + dirY * dirY);
 
-        if (length > 1.0f) // Prevent jitter when very close
+        if (length > 1.0f)
         {
-            // Normalize direction
             dirX /= length;
             dirY /= length;
 
-            float moveSpeed = 2.0f;
+            float speed = 2.0f;
 
-            posX += dirX * moveSpeed;
-            posY += dirY * moveSpeed;
+            velX = dirX * movespeed;
+            velY = dirY * movespeed;
         }
+        else
+        {
+            velX = 0.0f;
+            velY = 0.0f;
+        }
+
+        // Update position using velocity
+        posX += velX;
+        posY += velY;
 
 
         // ---- Render ----
