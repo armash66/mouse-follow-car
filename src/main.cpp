@@ -12,7 +12,7 @@ int main(int argc, char* argv[])
     SDL_Init(SDL_INIT_VIDEO);
 
     SDL_Window* window = SDL_CreateWindow(
-        "Proper Drift System",
+        "Steering Drift System",
         SDL_WINDOWPOS_CENTERED,
         SDL_WINDOWPOS_CENTERED,
         800,
@@ -44,6 +44,7 @@ int main(int argc, char* argv[])
     const float MAX_SPEED = 650.0f;
     const float DRAG = 0.04f;
     const float GRIP = 0.04f;
+    const float STEER_SPEED = 4.0f; // radians per second
 
     float angle = 0.0f;
 
@@ -77,11 +78,25 @@ int main(int argc, char* argv[])
 
         if (distance > 1.0f)
         {
+            // Normalize direction to mouse
             dirX /= distance;
             dirY /= distance;
 
-            velX += dirX * ACCELERATION * deltaTime;
-            velY += dirY * ACCELERATION * deltaTime;
+            // ---- STEERING ----
+            float targetAngle = std::atan2(dirY, dirX);
+            float diff = targetAngle - angle;
+
+            while (diff > M_PI) diff -= 2 * M_PI;
+            while (diff < -M_PI) diff += 2 * M_PI;
+
+            angle += diff * STEER_SPEED * deltaTime;
+
+            // ---- FORWARD ACCELERATION ----
+            float forwardX = std::cos(angle);
+            float forwardY = std::sin(angle);
+
+            velX += forwardX * ACCELERATION * deltaTime;
+            velY += forwardY * ACCELERATION * deltaTime;
         }
 
         // ---- DRAG ----
@@ -96,20 +111,7 @@ int main(int argc, char* argv[])
             velY = (velY / speed) * MAX_SPEED;
         }
 
-        // ---- ROTATION WITH WRAP ----
-        if (speed > 5.0f)
-        {
-            float targetAngle = std::atan2(velY, velX);
-            float diff = targetAngle - angle;
-
-            while (diff > M_PI) diff -= 2 * M_PI;
-            while (diff < -M_PI) diff += 2 * M_PI;
-
-            float rotationSpeed = 6.0f;
-            angle += diff * rotationSpeed * deltaTime;
-        }
-
-        // ---- DRIFT ----
+        // ---- DRIFT SYSTEM ----
         float forwardX = std::cos(angle);
         float forwardY = std::sin(angle);
 
@@ -124,7 +126,7 @@ int main(int argc, char* argv[])
         velX = forwardX * forwardSpeed + lateralX;
         velY = forwardY * forwardSpeed + lateralY;
 
-        // ---- TIRE MARKS (DUAL REAR) ----
+        // ---- TIRE MARKS ----
         float lateralMagnitude =
             std::sqrt(lateralX * lateralX + lateralY * lateralY);
 
