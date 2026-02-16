@@ -44,7 +44,7 @@ int main(int argc, char* argv[])
     const float MAX_SPEED = 650.0f;
     const float DRAG = 0.04f;
     const float GRIP = 0.04f;
-    const float STEER_SPEED = 4.0f; // radians per second
+    const float STEER_SPEED = 4.0f;
 
     float angle = 0.0f;
 
@@ -78,7 +78,6 @@ int main(int argc, char* argv[])
 
         if (distance > 1.0f)
         {
-            // Normalize direction to mouse
             dirX /= distance;
             dirY /= distance;
 
@@ -91,12 +90,36 @@ int main(int argc, char* argv[])
 
             angle += diff * STEER_SPEED * deltaTime;
 
-            // ---- FORWARD ACCELERATION ----
             float forwardX = std::cos(angle);
             float forwardY = std::sin(angle);
 
-            velX += forwardX * ACCELERATION * deltaTime;
-            velY += forwardY * ACCELERATION * deltaTime;
+            // ---- DISTANCE THROTTLE ----
+            float throttleZone = 250.0f;
+            float throttle = distance / throttleZone;
+
+            if (throttle > 1.0f) throttle = 1.0f;
+            if (throttle < 0.0f) throttle = 0.0f;
+
+            // ---- ALIGNMENT THROTTLE ----
+            float alignment = std::cos(diff);
+            if (alignment < 0.0f)
+                alignment = 0.0f;
+
+            float finalThrottle = throttle * alignment;
+
+            velX += forwardX * ACCELERATION * finalThrottle * deltaTime;
+            velY += forwardY * ACCELERATION * finalThrottle * deltaTime;
+
+            // ---- PROGRESSIVE BRAKE ----
+            if (distance < 120.0f)
+            {
+                float brakeZone = 120.0f;
+                float brakeIntensity = (brakeZone - distance) / brakeZone;
+                float brakeStrength = 6.0f * brakeIntensity;
+
+                velX -= velX * brakeStrength * deltaTime;
+                velY -= velY * brakeStrength * deltaTime;
+            }
         }
 
         // ---- DRAG ----
@@ -111,7 +134,7 @@ int main(int argc, char* argv[])
             velY = (velY / speed) * MAX_SPEED;
         }
 
-        // ---- DRIFT SYSTEM ----
+        // ---- DRIFT ----
         float forwardX = std::cos(angle);
         float forwardY = std::sin(angle);
 
